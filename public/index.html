@@ -134,7 +134,7 @@
 
       <!-- ROOM -->
       <div id="room-section" class="card hidden" style="border-color:var(--emer)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px"><h2 id="room-title" style="margin:0">Live Consult</h2><div class="btn-row" style="margin:0"><select id="room-location" style="margin:0;width:auto"><option value="in_rooms">In consulting rooms</option><option value="out_rooms">Out of consulting rooms</option><option value="raca">Residential aged care</option></select><button class="btn-danger" onclick="endConsultFromRoom()">⏹ End & Generate Notes</button></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px"><h2 id="room-title" style="margin:0">Live Consult</h2><div class="btn-row" style="margin:0"><select id="room-location" style="margin:0;width:auto"><option value="in_rooms">In consulting rooms</option><option value="out_rooms">Out of consulting rooms</option><option value="raca">Residential aged care</option></select><button class="btn-secondary" onclick="leaveVideoRoom()">⤴ Leave (keep open)</button><button class="btn-danger" onclick="endConsultFromRoom()">✓ Complete & Generate Notes</button></div></div>
         <div class="room-grid">
           <div id="jitsi-container"></div>
           <div class="scribe">
@@ -172,9 +172,11 @@
       <div id="spec-panel" class="hidden">
         <div id="spec-stats" class="stats hidden" style="margin-bottom:14px"></div>
         <div id="spec-live" class="card hidden" style="border-color:var(--emer)"></div>
-        <div class="card"><h2>Availability</h2><button id="avail-btn" class="btn-secondary" onclick="toggleAvailability()">⚪ Offline</button><p class="muted" style="margin-top:6px">You must be Available to receive broadcasts in your specialty.</p></div>
-        <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Incoming (your specialty)</h2><button class="btn-secondary btn-sm" onclick="loadInbox()">Refresh</button></div><div id="spec-inbox" style="margin-top:12px"></div></div>
+        <div class="card"><h2>Availability</h2><button id="avail-btn" class="btn-secondary" onclick="toggleAvailability()">⚪ Offline</button><p class="muted" style="margin-top:6px">Only available specialists receive broadcasts. Toggle on to see everything currently broadcasting.</p></div>
+        <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Incoming — your specialty</h2><button class="btn-secondary btn-sm" onclick="loadInbox()">Refresh</button></div><div id="spec-inbox" style="margin-top:12px"></div></div>
+        <div class="card"><h2>Incoming — all other specialties</h2><p class="muted" style="margin-top:-6px;margin-bottom:8px">Cases outside your specialty you can still pick up.</p><div id="spec-inbox-others"></div></div>
         <div id="spec-consult-actions" class="card hidden"></div>
+        <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Past</h2><button class="btn-secondary btn-sm" onclick="loadSpecPast()">Refresh</button></div><div id="spec-past" style="margin-top:12px"></div></div>
         <div id="spec-billing" class="card"></div>
       </div>
 

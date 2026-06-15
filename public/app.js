@@ -2,6 +2,7 @@
 // Curbside Frontend — app.js
 // ══════════════════════════════════════════════
 let TOKEN=null, USER=null, CURRENT_CONSULT=null;
+let CURRENT_DOCS=null;
 let jitsiApi=null, recognition=null, transcribing=false;
 let pollTimer=null, transcriptPollTimer=null, restartTimer=null;
 // Deep link: /?accept=<consultId> from SMS
@@ -130,7 +131,7 @@ function showDashboard(){
 
   clearInterval(pollTimer);
   if(USER.role==='gp'){loadConsults();loadLiveConsults();loadStats();loadBillingHistory();pollTimer=setInterval(()=>{pollCurrentConsult();loadLiveConsults();},4000);}
-  if(USER.role==='specialist'){refreshAvailabilityLabel();loadConsults();loadInbox();loadSpecLive();loadStats();loadBillingHistory();pollTimer=setInterval(()=>{loadInbox();loadSpecLive();},5000);
+  if(USER.role==='specialist'){refreshAvailabilityLabel();loadConsults();loadInbox();loadSpecLive();loadSpecPast();loadStats();loadBillingHistory();pollTimer=setInterval(()=>{loadInbox();loadSpecLive();loadSpecPast();},5000);
     if(PENDING_ACCEPT)showDeepLinkConsult(PENDING_ACCEPT);}
   if(USER.role==='admin'){loadAdminOverview();loadAdminUsers('gp');loadAdminUsers('specialist');loadAdminBilling();loadAudit();}
 }
@@ -186,7 +187,10 @@ async function loadLiveConsults(){
   el.innerHTML=`<h2>🟢 Live Consults</h2>`+live.map(c=>`
     <div class="live-row">
       <div><b>${c.ref_code}</b> · ${c.specialty} · ${patientLabel(c)} · <span class="pill pill-ok">${c.status}</span></div>
-      <button class="btn-primary btn-sm" onclick='joinLive(${JSON.stringify(c).replace(/'/g,"&#39;")})'>🎥 Join Call</button>
+      <div class="btn-row" style="margin:0">
+        <button class="btn-primary btn-sm" onclick='joinLive(${JSON.stringify(c).replace(/'/g,"&#39;")})'>🎥 ${c.status==='active'?'Re-join':'Join'} Call</button>
+        ${c.status==='active'?`<button class="btn-danger btn-sm" onclick="completeConsult(${c.id})">✓ Complete</button>`:''}
+      </div>
     </div>`).join('');
 }
 async function joinLive(c){
@@ -346,7 +350,8 @@ function renderConsultActions(){
   if(c.status==='draft')btns=`<button class="btn-secondary" onclick="structureConsult()">1 · AI Structure</button><button class="btn-primary" onclick="broadcastConsult()">2 · Broadcast</button>`;
   else if(c.status==='structured')btns=`<button class="btn-primary" onclick="broadcastConsult()">Broadcast to Specialists</button>`;
   else if(c.status==='broadcasting')btns=`<span class="pill pill-wait">⏳ Waiting for a specialist to accept…</span>`;
-  else if(c.status==='accepted'||c.status==='active')btns=`<button class="btn-primary" onclick="joinCallAsGP()">🎥 Join Video Call</button>`;
+  else if(c.status==='accepted')btns=`<button class="btn-primary" onclick="joinCallAsGP()">🎥 Join Video Call</button>`;
+  else if(c.status==='active')btns=`<button class="btn-primary" onclick="joinCallAsGP()">🎥 Re-join Video</button><button class="btn-danger" onclick="completeConsult(${c.id})">✓ Complete Consult</button>`;
   else if(c.status==='completed')btns=`<span class="pill pill-ok">✓ Completed</span><button class="btn-secondary btn-sm" onclick="viewConsultDocs(${c.id})">View Documents</button>`;
   // Edit/Delete only for non-past consults
   let manage='';
@@ -354,7 +359,7 @@ function renderConsultActions(){
   let ai='';
   if(c.ai_structured_summary){try{const s=JSON.parse(c.ai_structured_summary);ai=`<div class="ai-box"><b>AI summary:</b> ${s.presenting||''}<br><b>Differential:</b> ${(s.differential||[]).join(', ')}<br><b>Red flags:</b> ${s.red_flags||'None'}</div>`;}catch{}}
   const booking=c.booking_type==='scheduled'?`📅 Scheduled ${c.scheduled_at||''}`:'⚡ On-call';
-  el.innerHTML=`<h2>${c.ref_code}</h2><div class="meta">${c.specialty} · ${booking} · ${patientLabel(c)} · <b>${c.status}</b></div>${ai}<div class="btn-row">${btns}</div>${manage?`<div class="btn-row" style="margin-top:6px">${manage}</div>`:''}`;
+  el.innerHTML=`<h2>${c.ref_code}</h2><div class="meta">${c.specialty} · ${booking} · ${patientLabel(c)} · <b>${c.status}</b></div>${ai}${attachmentsHtml(c)}<div class="btn-row">${btns}</div>${manage?`<div class="btn-row" style="margin-top:6px">${manage}</div>`:''}`;
 }
 async function joinCallAsGP(){
   if(!CURRENT_CONSULT)return;
@@ -370,7 +375,7 @@ async function refreshAvailabilityLabel(){
     btn.textContent=r.data.is_available?'🟢 Available — click to go offline':'⚪ Offline — click to go available';
     btn.className=r.data.is_available?'btn-primary':'btn-secondary';}
 }
-async function toggleAvailability(){const r=await api('POST','/specialists/toggle');if(r.ok){log(`Availability: ${r.data.is_available?'ONLINE':'OFFLINE'}`);refreshAvailabilityLabel();}}
+async function toggleAvailability(){const r=await api('POST','/specialists/toggle');if(r.ok){log(`Availability: ${r.data.is_available?'ONLINE':'OFFLINE'}`);refreshAvailabilityLabel();loadInbox();}}
 
 // Specialist: live (accepted/active) consults assigned to me, pinned to top
 async function loadSpecLive(){
@@ -384,7 +389,10 @@ async function loadSpecLive(){
   el.innerHTML=`<h2>🟢 Live Consults</h2>`+live.map(c=>`
     <div class="live-row">
       <div><b>${c.ref_code}</b> · ${c.specialty} · ${c.patient_initials} (${c.patient_age||''}${c.patient_sex||''}) · <span class="pill pill-ok">${c.status}</span></div>
-      <button class="btn-primary btn-sm" onclick='joinSpecLive(${JSON.stringify(c).replace(/'/g,"&#39;")})'>🎥 Join Call</button>
+      <div class="btn-row" style="margin:0">
+        <button class="btn-primary btn-sm" onclick='joinSpecLive(${JSON.stringify(c).replace(/'/g,"&#39;")})'>🎥 ${c.status==='active'?'Re-join':'Join'} Call</button>
+        ${c.status==='active'?`<button class="btn-danger btn-sm" onclick="completeConsult(${c.id})">✓ Complete</button>`:''}
+      </div>
     </div>`).join('');
 }
 async function joinSpecLive(c){
@@ -393,26 +401,70 @@ async function joinSpecLive(c){
   const r=await api('GET',`/consults/${c.id}`);if(r.ok)CURRENT_CONSULT=r.data.consult;
   openVideoRoom(CURRENT_CONSULT,`${USER.first_name} ${USER.last_name} (Specialist)`);
 }
+function consultRow(c,{showAccept=true}={}){
+  const att=c.attachment_count?` · 📎 ${c.attachment_count}`:'';
+  return `<div class="inbox-item"><div><b>${c.ref_code}</b> · ${c.specialty} · <span class="badge badge-${c.urgency}">${c.urgency}</span>${att}</div>`+
+    `<div class="meta">${c.patient_initials} (${c.patient_age||''}${c.patient_sex||''})</div>`+
+    `<div class="muted">${(c.case_summary||'').slice(0,120)}…</div>`+
+    `<div class="btn-row">`+
+    (showAccept?`<button class="btn-primary btn-sm" onclick="acceptConsult(${c.id})">Accept</button><button class="btn-secondary btn-sm" onclick="declineConsult(${c.id})">Decline</button>`:'')+
+    `<button class="btn-secondary btn-sm" onclick="openSpecConsult(${c.id})">View</button></div></div>`;
+}
 async function loadInbox(){
-  const r=await api('GET','/consults?status=broadcasting');if(!r.ok)return;
-  const el=document.getElementById('spec-inbox');const cs=r.data.consults||[];
-  if(!cs.length){el.innerHTML='<p class="muted">No incoming consults in your specialty.</p>';return;}
-  el.innerHTML=cs.map(c=>`<div class="inbox-item"><div><b>${c.ref_code}</b> · ${c.specialty} · <span class="badge badge-${c.urgency}">${c.urgency}</span></div><div class="meta">${c.patient_initials} (${c.patient_age||''}${c.patient_sex||''})</div><div class="muted">${(c.case_summary||'').slice(0,120)}…</div><div class="btn-row"><button class="btn-primary btn-sm" onclick="acceptConsult(${c.id})">Accept</button><button class="btn-secondary btn-sm" onclick="declineConsult(${c.id})">Decline</button></div></div>`).join('');
+  const mineEl=document.getElementById('spec-inbox');
+  const othersEl=document.getElementById('spec-inbox-others');
+  const r=await api('GET','/consults/incoming');
+  if(!r.ok){if(mineEl)mineEl.innerHTML='<p class="muted">Could not load.</p>';return;}
+  if(!r.data.available){
+    mineEl.innerHTML='<p class="muted">⚪ You\u2019re offline — toggle <b>Available</b> above to see incoming consults.</p>';
+    othersEl.innerHTML='';return;
+  }
+  const mine=r.data.mine||[],others=r.data.others||[];
+  mineEl.innerHTML=mine.length?mine.map(c=>consultRow(c)).join(''):'<p class="muted">No incoming consults in your specialty right now.</p>';
+  othersEl.innerHTML=others.length?others.map(c=>consultRow(c)).join(''):'<p class="muted">Nothing in other specialties right now.</p>';
+}
+async function loadSpecPast(){
+  const el=document.getElementById('spec-past');if(!el)return;
+  const r=await api('GET','/consults/past');if(!r.ok)return;
+  const completed=r.data.completed||[],declined=r.data.declined||[];
+  let html='';
+  if(completed.length)html+=completed.map(c=>`<div class="inbox-item"><div><b>${c.ref_code}</b> · ${c.specialty} · <span class="pill pill-ok">${c.status}</span></div><div class="meta">${c.patient_initials} (${c.patient_age||''}${c.patient_sex||''})</div><div class="btn-row"><button class="btn-secondary btn-sm" onclick="openSpecConsult(${c.id})">View</button>${c.status==='completed'?`<button class="btn-secondary btn-sm" onclick="viewConsultDocs(${c.id})">Documents</button>`:''}</div></div>`).join('');
+  if(declined.length)html+=declined.map(c=>`<div class="inbox-item" style="opacity:.7"><div><b>${c.ref_code}</b> · ${c.specialty} · <span class="badge">declined by you</span></div><div class="meta">${c.patient_initials} (${c.patient_age||''}${c.patient_sex||''})</div><div class="btn-row"><button class="btn-secondary btn-sm" onclick="openSpecConsult(${c.id})">View</button></div></div>`).join('');
+  el.innerHTML=html||'<p class="muted">No past cases yet.</p>';
+}
+// Open a consult (fetch full detail incl. attachments) into the action panel
+async function openSpecConsult(id){
+  const r=await api('GET',`/consults/${id}`);if(!r.ok)return;
+  CURRENT_CONSULT=r.data.consult;CURRENT_DOCS=r.data;renderSpecActions();
+  document.getElementById('spec-consult-actions').scrollIntoView({behavior:'smooth'});
 }
 async function acceptConsult(id){
   const r=await api('POST',`/consults/${id}/accept`);
   if(r.ok){log(`Accepted ${r.data.consult_ref}.`);
-    const cr=await api('GET',`/consults/${id}`);if(cr.ok){CURRENT_CONSULT=cr.data.consult;renderSpecActions();}
-    loadInbox();loadConsults();}
+    const cr=await api('GET',`/consults/${id}`);if(cr.ok){CURRENT_CONSULT=cr.data.consult;CURRENT_DOCS=cr.data;renderSpecActions();}
+    loadInbox();loadSpecLive();loadConsults();}
+  else log(r.data.error||'Could not accept (maybe already taken).');
 }
-async function declineConsult(id){await api('POST',`/consults/${id}/decline`);loadInbox();}
+async function declineConsult(id){await api('POST',`/consults/${id}/decline`);loadInbox();loadSpecPast();}
+function attachmentsHtml(consult){
+  let atts=[];try{atts=JSON.parse(consult.attachments||'[]');}catch{atts=consult.attachments||[];}
+  if(!atts||!atts.length)return '';
+  return `<div style="margin-top:10px"><b style="font-size:13px">Attachments</b><div class="btn-row" style="flex-wrap:wrap;margin-top:6px">`+
+    atts.map((a,i)=>{
+      const data=a.data?`data:${a.type||'application/octet-stream'};base64,${a.data}`:null;
+      const kb=a.size?` (${Math.round(a.size/1024)} KB)`:'';
+      return data?`<a class="btn-secondary btn-sm" href="${data}" download="${a.name||'attachment-'+i}" target="_blank">📎 ${a.name||'file'}${kb}</a>`
+                 :`<span class="btn-secondary btn-sm">📎 ${a.name||'file'}${kb}</span>`;
+    }).join('')+`</div></div>`;
+}
 function renderSpecActions(){
   const el=document.getElementById('spec-consult-actions');if(!el)return;el.classList.remove('hidden');
   const c=CURRENT_CONSULT;let btns='';
-  if(c.status==='accepted')btns=`<button class="btn-primary" onclick="startCallAsSpecialist()">▶ Start Consult (open video)</button>`;
-  else if(c.status==='active')btns=`<button class="btn-primary" onclick="startCallAsSpecialist()">🎥 Re-join Video</button>`;
+  if(c.status==='broadcasting')btns=`<button class="btn-primary" onclick="acceptConsult(${c.id})">Accept this consult</button><button class="btn-secondary" onclick="declineConsult(${c.id})">Decline</button>`;
+  else if(c.status==='accepted')btns=`<button class="btn-primary" onclick="startCallAsSpecialist()">▶ Start Consult (open video)</button>`;
+  else if(c.status==='active')btns=`<button class="btn-primary" onclick="startCallAsSpecialist()">🎥 Re-join Video</button><button class="btn-danger" onclick="completeConsult(${c.id})">✓ Complete Consult</button>`;
   else if(c.status==='completed')btns=`<span class="pill pill-ok">✓ Completed</span><button class="btn-secondary btn-sm" onclick="viewConsultDocs(${c.id})">View Documents</button>`;
-  el.innerHTML=`<h2>Active Case: ${c.ref_code}</h2><div class="meta">${c.specialty} · ${c.patient_initials} (${c.patient_age||''}${c.patient_sex||''}) · <b>${c.status}</b></div><div class="btn-row">${btns}</div>`;
+  el.innerHTML=`<h2>Case: ${c.ref_code}</h2><div class="meta">${c.specialty} · ${c.patient_initials} (${c.patient_age||''}${c.patient_sex||''}) · <b>${c.status}</b></div><div class="muted" style="margin-top:6px">${(c.case_summary||'')}</div>${attachmentsHtml(c)}<div class="btn-row" style="margin-top:10px">${btns}</div>`;
 }
 async function startCallAsSpecialist(){
   if(!CURRENT_CONSULT)return;
@@ -514,19 +566,35 @@ async function refreshTranscript(id){
   }).join('');
   box.scrollTop=box.scrollHeight;
 }
-async function endConsultFromRoom(){
-  if(!CURRENT_CONSULT)return;
+// Leave the video but KEEP the consult open — transcript is already saved server-side,
+// so either party can re-join later, or complete it. Does NOT generate documents.
+function leaveVideoRoom(){
+  stopTranscription();clearInterval(transcriptPollTimer);
+  closeVideoRoom();
+  const rs=document.getElementById('room-section');if(rs)rs.classList.add('hidden');
+  log('Left video — consult still open, transcript saved. You can re-join or complete it.');
+  if(CURRENT_CONSULT){ if(USER.role==='gp')renderConsultActions(); else renderSpecActions(); }
+  loadConsults(); if(USER.role==='specialist')loadSpecLive();
+}
+
+// Complete the consult (either party) → generates SOAP + documents from the SAVED transcript.
+async function completeConsult(id){
+  if(!confirm('Complete this consult? This finalises it and generates the SOAP note and documents from everything transcribed so far.'))return;
   stopTranscription();clearInterval(transcriptPollTimer);
   const location_type=(document.getElementById('room-location')||{}).value||'in_rooms';
-  const r=await api('POST',`/consults/${CURRENT_CONSULT.id}/end`,{location_type,consult_mode:'video'});
-  closeVideoRoom();document.getElementById('room-section').classList.add('hidden');
+  const r=await api('POST',`/consults/${id}/end`,{location_type,consult_mode:'video'});
+  closeVideoRoom();const rs=document.getElementById('room-section');if(rs)rs.classList.add('hidden');
   if(r.ok){
-    log(`Consult ended. Documents generated.`);
-    if(r.data.billing){const b=r.data.billing;log(`Billing: ${b.pathway} · GP ${b.gp_mbs_item||'—'} ${b.gp_fee} · Spec ${b.specialist_mbs_item||'—'} ${b.specialist_fee}`);}
-    CURRENT_CONSULT.status='completed';
+    log('Consult completed. Documents generated.');
+    if(r.data.billing){const b=r.data.billing;log(`Billing: ${b.pathway||b.billing_pathway} · GP ${b.gp_mbs_item||'—'} ${b.gp_fee||''} · Spec ${b.specialist_mbs_item||'—'} ${b.specialist_fee||''}`);}
+    if(CURRENT_CONSULT&&CURRENT_CONSULT.id===id)CURRENT_CONSULT.status='completed';
     if(USER.role==='gp')renderConsultActions();else renderSpecActions();
-    viewConsultDocs(CURRENT_CONSULT.id);loadConsults();
-  }
+    viewConsultDocs(id);loadConsults();if(USER.role==='specialist')loadSpecLive();
+  } else log(r.data.error||'Could not complete consult.');
+}
+async function endConsultFromRoom(){
+  if(!CURRENT_CONSULT)return;
+  completeConsult(CURRENT_CONSULT.id);
 }
 async function viewConsultDocs(id){
   const r=await api('GET',`/consults/${id}`);if(!r.ok)return;
@@ -627,7 +695,12 @@ function renderList(elId,items,empty){
     return `<div class="consult-row" onclick='selectConsult(${JSON.stringify(c).replace(/'/g,"&#39;")})'><b>${c.ref_code}</b> · ${c.specialty} · <span class="muted">${c.status}</span> · ${nm}</div>`;
   }).join('');
 }
-function selectConsult(c){CURRENT_CONSULT=c;if(USER.role==='gp')renderConsultActions();if(USER.role==='specialist')renderSpecActions();if(['completed'].includes(c.status))viewConsultDocs(c.id);}
+async function selectConsult(c){
+  const r=await api('GET',`/consults/${c.id}`);
+  CURRENT_CONSULT=(r.ok&&r.data.consult)?r.data.consult:c;CURRENT_DOCS=r.ok?r.data:null;
+  if(USER.role==='gp')renderConsultActions();if(USER.role==='specialist')renderSpecActions();
+  if(['completed'].includes(CURRENT_CONSULT.status))viewConsultDocs(CURRENT_CONSULT.id);
+}
 
 // ════════ ADMIN ════════
 async function loadAdminOverview(){

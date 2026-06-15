@@ -259,12 +259,14 @@ function runMigrations() {
   const consultCols = [
     'patient_first_name TEXT', 'patient_last_name TEXT', 'patient_medicare TEXT',
     'patient_irn TEXT', 'patient_dob TEXT',
-    "booking_type TEXT DEFAULT 'on_call'", 'scheduled_at TEXT'
+    "booking_type TEXT DEFAULT 'on_call'", 'scheduled_at TEXT',
+    "declined_specialist_ids TEXT DEFAULT '[]'"
   ];
   for (const col of consultCols) {
     try { wrapper.exec(`ALTER TABLE consults ADD COLUMN ${col}`); }
     catch (e) { /* exists */ }
   }
+  try { wrapper.exec('ALTER TABLE users ADD COLUMN postcode TEXT'); } catch (e) {}
 
   // Migration: add Medicare claim tracking to billing_records
   const billingCols = [

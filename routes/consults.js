@@ -18,6 +18,14 @@ function genRefCode() {
   return `C-${num}`;
 }
 
+// Current Sydney date/time { date:'YYYY-MM-DD', time:'HH:MM' } for availability checks.
+function sydneyNow() {
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+  const p = Object.fromEntries(fmt.formatToParts(new Date()).map(x => [x.type, x.value]));
+  return { date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}` };
+}
+
 // ── POST /api/consults — Create new consult (GP only) ──
 router.post('/', requireRole('gp'), (req, res) => {
   try {
@@ -214,11 +222,76 @@ router.get('/', (req, res) => {
     sql += ' ORDER BY created_at DESC LIMIT ?';
     params.push(parseInt(limit));
 
-    const consults = db.all(sql, params);
+    const consults = db.all(sql, params).map(liteConsult);
     res.json({ consults, count: consults.length });
   } catch (err) {
     console.error('[CONSULTS] List error:', err);
     res.status(500).json({ error: 'Failed to list consults' });
+  }
+});
+
+// Strip heavy base64 attachment payloads from list rows — keep only metadata so
+// list responses stay small (this is what broke specialists seeing consults that
+// had a big image/PDF attached). Full attachment data is served by GET /:id.
+function liteConsult(c) {
+  let atts = [];
+  try { atts = JSON.parse(c.attachments || '[]'); } catch {}
+  const meta = atts.map(a => ({ name: a.name, type: a.type, size: a.size }));
+  return { ...c, attachments: meta, attachment_count: meta.length };
+}
+function declinedBy(c, specialistId) {
+  try { return (JSON.parse(c.declined_specialist_ids || '[]')).includes(specialistId); }
+  catch { return false; }
+}
+
+// ── GET /api/consults/incoming — specialist queue, split by specialty ──
+// Availability-gated: an OFFLINE specialist sees nothing; toggling ON reveals all
+// currently-broadcasting consults (incl. ones broadcast while they were offline).
+// Declined consults are excluded (they move to /past for that specialist only).
+router.get('/incoming', requireRole('specialist'), (req, res) => {
+  try {
+    const me = db.get('SELECT is_available, specialty FROM users WHERE id = ?', [req.user.id]);
+    // effective availability = manual toggle OR within a scheduled slot now
+    let available = !!me.is_available;
+    if (!available) {
+      try {
+        const { date, time } = sydneyNow();
+        const slot = db.get(
+          `SELECT COUNT(*) c FROM availability_slots WHERE specialist_id = ? AND slot_date = ? AND start_time <= ? AND end_time > ?`,
+          [req.user.id, date, time, time]);
+        available = slot && slot.c > 0;
+      } catch {}
+    }
+    if (!available) return res.json({ available: false, mine: [], others: [] });
+
+    const rows = db.all(`SELECT * FROM consults WHERE status = 'broadcasting' ORDER BY created_at DESC LIMIT 100`);
+    const mine = [], others = [];
+    for (const c of rows) {
+      if (declinedBy(c, req.user.id)) continue;
+      (c.specialty === me.specialty ? mine : others).push(liteConsult(c));
+    }
+    res.json({ available: true, mine, others });
+  } catch (err) {
+    console.error('[CONSULTS] Incoming error:', err);
+    res.status(500).json({ error: 'Failed to load incoming' });
+  }
+});
+
+// ── GET /api/consults/past — specialist's completed + personally-declined cases ──
+router.get('/past', requireRole('specialist'), (req, res) => {
+  try {
+    const completed = db.all(
+      `SELECT * FROM consults WHERE specialist_id = ? AND status IN ('completed','active','accepted') ORDER BY created_at DESC LIMIT 50`,
+      [req.user.id]);
+    const all = db.all(`SELECT * FROM consults WHERE status = 'broadcasting' ORDER BY created_at DESC LIMIT 100`);
+    const declined = all.filter(c => declinedBy(c, req.user.id));
+    res.json({
+      completed: completed.map(liteConsult),
+      declined: declined.map(liteConsult)
+    });
+  } catch (err) {
+    console.error('[CONSULTS] Past error:', err);
+    res.status(500).json({ error: 'Failed to load past' });
   }
 });
 
@@ -459,6 +532,15 @@ router.post('/:id/decline', requireRole('specialist'), (req, res) => {
     if (!consult) {
       return res.status(404).json({ error: 'Consult not found or not broadcasting' });
     }
+
+    // Per-specialist decline: add this specialist to the declined list. The consult
+    // STAYS broadcasting for everyone else — it only disappears from THIS specialist's
+    // incoming queue and shows under their Past instead.
+    let declined = [];
+    try { declined = JSON.parse(consult.declined_specialist_ids || '[]'); } catch {}
+    if (!declined.includes(req.user.id)) declined.push(req.user.id);
+    db.run(`UPDATE consults SET declined_specialist_ids = ?, updated_at = datetime('now') WHERE id = ?`,
+      [JSON.stringify(declined), consult.id]);
 
     // Mark notification as actioned
     db.run(`
