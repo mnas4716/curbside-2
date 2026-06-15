@@ -153,8 +153,8 @@
         <div id="gp-live" class="card hidden" style="border-color:var(--emer)"></div>
         <div class="card">
           <h2 id="consult-form-title">New Consult Request</h2>
-          <div class="row"><div><label>Specialty</label><select id="c-specialty"><option>Dermatology</option><option>Cardiology</option><option>Endocrinology</option><option>Psychiatry</option></select></div><div><label>Urgency</label><select id="c-urgency"><option value="routine">Routine</option><option value="soon">Soon</option><option value="urgent">Urgent</option></select></div></div>
-          <div class="row"><div><label>Booking</label><select id="c-booking" onchange="onBookingChange()"><option value="on_call">Urgent — On Call (now)</option><option value="scheduled">Scheduled (later)</option></select></div><div id="c-sched-wrap" class="hidden"><label>Scheduled Date/Time</label><input id="c-scheduled" type="datetime-local"></div></div>
+          <div class="row"><div><label>Specialty</label><select id="c-specialty"><option>Dermatology</option><option>Cardiology</option><option>Endocrinology</option><option>Psychiatry</option></select></div><div><label>Booking Type</label><select id="c-booking" onchange="onBookingChange()"><option value="on_call">Urgent — On Call (now)</option><option value="scheduled">Scheduled (later)</option></select></div></div>
+          <div class="row"><div id="c-sched-wrap" class="hidden"><label>Scheduled Date/Time</label><input id="c-scheduled" type="datetime-local"></div></div>
           <div class="row"><div><label>Patient First Name</label><input id="c-first" value="Margaret"></div><div><label>Patient Last Name</label><input id="c-last" value="Smith"></div></div>
           <div class="row"><div><label>Medicare #</label><input id="c-medicare" placeholder="2123 45670 1"></div><div><label>IRN</label><input id="c-irn" placeholder="1" style="max-width:80px"></div><div><label>Sex</label><select id="c-sex"><option>F</option><option>M</option><option>Other</option></select></div></div>
           <div class="row"><div><label>Date of Birth</label><input id="c-dob" type="date" value="1957-03-12"></div><div></div></div>

@@ -248,7 +248,7 @@ function onBookingChange(){
 function consultFormPayload(){
   return {
     specialty:document.getElementById('c-specialty').value,
-    urgency:document.getElementById('c-urgency').value,
+    urgency:(document.getElementById('c-booking').value==='on_call'?'soon':'routine'),
     booking_type:document.getElementById('c-booking').value,
     scheduled_at:document.getElementById('c-booking').value==='scheduled'?document.getElementById('c-scheduled').value:null,
     patient_first_name:document.getElementById('c-first').value.trim(),
@@ -280,7 +280,6 @@ function editConsult(c){
   document.getElementById('consult-submit').textContent='Save Changes';
   document.getElementById('consult-cancel-edit').classList.remove('hidden');
   document.getElementById('c-specialty').value=c.specialty;
-  document.getElementById('c-urgency').value=c.urgency;
   document.getElementById('c-booking').value=c.booking_type||'on_call';onBookingChange();
   if(c.scheduled_at)document.getElementById('c-scheduled').value=c.scheduled_at.slice(0,16);
   document.getElementById('c-first').value=c.patient_first_name||'';
@@ -631,14 +630,18 @@ async function viewConsultDocs(id){
       <div class="btn-row">${claimBtns}</div>
     </div>`;
   }
-  // Attachments
+  // Attachments (viewable/downloadable after the consult)
   let attachHtml='';
   try{
     const atts=JSON.parse(r.data.consult.attachments||'[]');
     if(atts.length){
-      attachHtml=`<h2 style="font-size:13px;margin-top:12px">Attachments</h2>`+atts.map(a=>
-        a.data?`<div class="doc"><a href="${a.data}" download="${a.name}">📎 ${a.name}</a> <span class="muted">(${Math.round((a.size||0)/1024)}KB)</span></div>`
-        :`<div class="doc muted">📎 ${a.name} — ${a.note||'not embedded'}</div>`).join('');
+      attachHtml=`<h2 style="font-size:13px;margin-top:12px">Attachments</h2>`+atts.map(a=>{
+        const uri=a.data?`data:${a.type||'application/octet-stream'};base64,${a.data}`:null;
+        const kb=Math.round((a.size||0)/1024);
+        return uri
+          ?`<div class="doc" style="display:flex;justify-content:space-between;align-items:center"><span>📎 ${a.name} <span class="muted">(${kb}KB)</span></span><span class="btn-row" style="margin:0"><a class="btn-secondary btn-sm" href="${uri}" target="_blank" rel="noopener">View</a><a class="btn-secondary btn-sm" href="${uri}" download="${a.name}">Download</a></span></div>`
+          :`<div class="doc muted">📎 ${a.name} — ${a.note||'unavailable'}</div>`;
+      }).join('');
     }
   }catch{}
   // Docs as collapsible accordions
