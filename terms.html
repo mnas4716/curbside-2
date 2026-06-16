@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Curbside — Real-time specialist input for Australian GPs</title>
+<meta name="description" content="Curbside connects GPs with on-call specialists for real-time video consults, with AI-drafted notes and Medicare PES billing built in.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --paper:#FBFCFD; --surface:#FFFFFF; --surface2:#F4F7FA;
+    --ink:#0B1F33; --ink2:#243B52; --slate:#5A6B7B; --faint:#8FA0B0;
+    --line:#E6EBF1; --line2:#D7DFE8;
+    --teal:#0E9F77; --teal-d:#0B7E5E; --teal-wash:#E7F6F0;
+    --clinical:#0E7490; --clinical-wash:#E2F1F4;
+    --amber:#B45309; --amber-wash:#FBF1E3; --red:#DC2626;
+    --shadow:0 1px 2px rgba(11,31,51,.04),0 8px 24px -12px rgba(11,31,51,.10);
+    --shadow-lg:0 2px 4px rgba(11,31,51,.04),0 24px 60px -28px rgba(11,31,51,.22);
+    --mono:'Spline Sans Mono',ui-monospace,monospace;
+    --r:14px;
+  }
+  html{scroll-behavior:smooth}
+  body{font-family:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:var(--paper);color:var(--ink);line-height:1.55;letter-spacing:-.011em;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .eyebrow{font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--clinical)}
+
+  /* ── Nav ── */
+  header{position:sticky;top:0;z-index:50;background:rgba(251,252,253,.82);backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  nav{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:-.02em}
+  .logo{width:32px;height:32px;border-radius:9px;background:linear-gradient(150deg,var(--teal),var(--teal-d));
+    display:flex;align-items:center;justify-content:center;color:#fff;position:relative;box-shadow:0 6px 16px -6px rgba(14,159,119,.6)}
+  .logo svg{width:20px;height:20px}
+  .nav-links{display:flex;align-items:center;gap:30px}
+  .nav-links a{font-size:14.5px;font-weight:500;color:var(--ink2);transition:color .15s}
+  .nav-links a:hover{color:var(--teal-d)}
+  .nav-cta{display:flex;align-items:center;gap:12px}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-family:inherit;font-weight:650;font-size:14.5px;
+    border-radius:11px;padding:10px 18px;cursor:pointer;border:1px solid transparent;transition:.15s;white-space:nowrap}
+  .btn-primary{background:var(--teal);color:#fff;box-shadow:0 8px 20px -10px rgba(14,159,119,.7)}
+  .btn-primary:hover{background:var(--teal-d);transform:translateY(-1px)}
+  .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line2)}
+  .btn-ghost:hover{border-color:var(--ink2);background:var(--surface)}
+  .btn-lg{padding:13px 24px;font-size:15.5px;border-radius:12px}
+  .menu-btn{display:none;width:42px;height:42px;border-radius:10px;border:1px solid var(--line2);
+    background:var(--surface);align-items:center;justify-content:center;cursor:pointer}
+
+  /* ── Hero ── */
+  .hero{position:relative;padding:84px 0 72px;overflow:hidden}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center}
+  .tag{display:inline-flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--line);
+    border-radius:30px;padding:7px 14px 7px 11px;font-size:13px;font-weight:600;color:var(--ink2);box-shadow:var(--shadow);margin-bottom:24px}
+  .tag .live{width:8px;height:8px;border-radius:50%;background:var(--teal);position:relative}
+  .tag .live::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--teal);
+    animation:ping 2.2s cubic-bezier(0,0,.2,1) infinite}
+  @keyframes ping{0%{transform:scale(.6);opacity:.8}80%,100%{transform:scale(1.9);opacity:0}}
+  h1{font-size:54px;line-height:1.04;font-weight:800;letter-spacing:-.035em;margin-bottom:22px}
+  h1 .accent{color:var(--teal-d)}
+  .lede{font-size:19px;color:var(--slate);max-width:30em;margin-bottom:32px}
+  .hero-cta{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:30px}
+  .hero-meta{display:flex;gap:26px;flex-wrap:wrap;font-size:13.5px;color:var(--slate)}
+  .hero-meta b{color:var(--ink);font-weight:700}
+  .hero-meta .item{display:flex;align-items:center;gap:8px}
+  .hero-meta svg{width:17px;height:17px;color:var(--teal)}
+
+  /* ── Hero instrument card (signature) ── */
+  .device{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:20px;
+    box-shadow:var(--shadow-lg);overflow:hidden}
+  .device-top{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--line)}
+  .device-top .ref{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--ink)}
+  .device-top .ref span{color:var(--faint);font-weight:400}
+  .device-badge{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    padding:5px 9px;border-radius:7px;background:var(--teal-wash);color:var(--teal-d);display:flex;align-items:center;gap:6px}
+  .device-badge .d{width:6px;height:6px;border-radius:50%;background:var(--teal);animation:blink 1.6s steps(1) infinite}
+  @keyframes blink{50%{opacity:.25}}
+  .ecg{height:72px;background:var(--surface2);position:relative;border-bottom:1px solid var(--line)}
+  .ecg svg{position:absolute;inset:0;width:100%;height:100%}
+  .ecg .trace{stroke:var(--teal);stroke-width:2.2;fill:none;stroke-linejoin:round;stroke-linecap:round;
+    stroke-dasharray:1400;stroke-dashoffset:1400;animation:draw 3.4s linear infinite}
+  @keyframes draw{to{stroke-dashoffset:-1400}}
+  .device-body{padding:18px}
+  .pmeta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .pmeta .t{font-family:var(--mono);font-size:12px;font-weight:500;background:var(--surface2);
+    border:1px solid var(--line);border-radius:8px;padding:5px 10px;color:var(--ink2)}
+  .pmeta .t i{color:var(--faint);font-style:normal}
+  .device-line{font-size:13.5px;color:var(--slate);line-height:1.5;margin-bottom:16px}
+  .device-line b{color:var(--ink);font-weight:600}
+  .flow{display:flex;align-items:center;gap:0;margin-top:4px}
+  .flow .step{flex:1;text-align:center;position:relative}
+  .flow .dot{width:11px;height:11px;border-radius:50%;background:var(--line2);margin:0 auto 7px;position:relative;z-index:2}
+  .flow .step.done .dot{background:var(--teal)}
+  .flow .step.now .dot{background:var(--teal);box-shadow:0 0 0 4px var(--teal-wash)}
+  .flow .step .lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
+  .flow .step.done .lab,.flow .step.now .lab{color:var(--ink2)}
+  .flow .bar{position:absolute;top:5px;left:50%;width:100%;height:2px;background:var(--line2);z-index:1}
+  .flow .step.done .bar{background:var(--teal)}
+  .flow .step:last-child .bar{display:none}
+  .device-foot{display:flex;gap:9px;margin-top:18px}
+  .device-foot .b{flex:1;text-align:center;font-size:13px;font-weight:650;padding:10px;border-radius:10px}
+  .device-foot .b.acc{background:var(--teal);color:#fff}
+  .device-foot .b.dec{background:var(--surface2);color:var(--slate);border:1px solid var(--line)}
+  .float{position:absolute;background:var(--surface);border:1px solid var(--line);border-radius:13px;
+    box-shadow:var(--shadow-lg);padding:11px 14px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600}
+  .float .ic{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .float .ic svg{width:17px;height:17px}
+  .float.f1{bottom:-22px;left:-26px;background:var(--surface)}
+  .float.f1 .ic{background:var(--clinical-wash);color:var(--clinical)}
+  .float.f2{top:18px;right:-30px}
+  .float.f2 .ic{background:var(--amber-wash);color:var(--amber)}
+  .float small{display:block;font-size:11px;font-weight:500;color:var(--faint)}
+
+  /* ── Trust strip ── */
+  .strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface);padding:24px 0}
+  .strip-in{display:flex;align-items:center;gap:34px;flex-wrap:wrap;justify-content:center;
+    font-size:13.5px;color:var(--slate);font-weight:500}
+  .strip-in .k{display:flex;align-items:center;gap:9px}
+  .strip-in svg{width:18px;height:18px;color:var(--teal-d)}
+
+  /* ── Sections ── */
+  section{padding:88px 0}
+  .sec-head{max-width:640px;margin-bottom:52px}
+  .sec-head.center{margin-left:auto;margin-right:auto;text-align:center}
+  h2{font-size:38px;line-height:1.1;font-weight:800;letter-spacing:-.03em;margin:14px 0 16px}
+  .sec-head p{font-size:18px;color:var(--slate)}
+
+  /* How it works */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+  .step-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:28px;box-shadow:var(--shadow);position:relative}
+  .step-card .n{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--teal-d);
+    background:var(--teal-wash);width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+  .step-card h3{font-size:18.5px;font-weight:700;letter-spacing:-.02em;margin-bottom:9px}
+  .step-card p{font-size:14.5px;color:var(--slate)}
+  .step-card .conn{position:absolute;top:46px;right:-13px;width:26px;height:2px;background:var(--line2);z-index:2}
+  .steps .step-card:last-child .conn{display:none}
+
+  /* Roles split */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  .panel{border-radius:18px;padding:34px;border:1px solid var(--line)}
+  .panel.gp{background:linear-gradient(180deg,var(--teal-wash),var(--surface))}
+  .panel.sp{background:linear-gradient(180deg,var(--clinical-wash),var(--surface))}
+  .panel .role{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px}
+  .panel.gp .role{color:var(--teal-d)} .panel.sp .role{color:var(--clinical)}
+  .panel h3{font-size:24px;font-weight:800;letter-spacing:-.025em;margin-bottom:18px}
+  .panel ul{list-style:none;display:flex;flex-direction:column;gap:14px}
+  .panel li{display:flex;gap:12px;font-size:15px;color:var(--ink2)}
+  .panel li svg{width:21px;height:21px;flex-shrink:0;margin-top:1px}
+  .panel.gp li svg{color:var(--teal)} .panel.sp li svg{color:var(--clinical)}
+  .panel li b{font-weight:700;color:var(--ink)}
+
+  /* Security / billing */
+  .feat-sec{background:var(--surface);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .feats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  .feat{background:var(--surface);padding:30px 26px}
+  .feat .ic{width:42px;height:42px;border-radius:11px;background:var(--surface2);display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+  .feat .ic svg{width:22px;height:22px;color:var(--ink2)}
+  .feat h3{font-size:16.5px;font-weight:700;margin-bottom:8px;letter-spacing:-.015em}
+  .feat p{font-size:14px;color:var(--slate)}
+  .feat .code{font-family:var(--mono);font-size:12.5px;color:var(--clinical);margin-top:10px}
+
+  /* FAQ */
+  .faq{max-width:780px;margin:0 auto}
+  .qa{border-bottom:1px solid var(--line)}
+  .qa summary{list-style:none;cursor:pointer;padding:22px 0;display:flex;justify-content:space-between;
+    align-items:center;gap:20px;font-size:17.5px;font-weight:650;letter-spacing:-.015em}
+  .qa summary::-webkit-details-marker{display:none}
+  .qa summary .pm{width:26px;height:26px;flex-shrink:0;border-radius:8px;border:1px solid var(--line2);
+    display:flex;align-items:center;justify-content:center;color:var(--slate);transition:.2s;font-size:18px;line-height:1}
+  .qa[open] summary .pm{transform:rotate(45deg);background:var(--teal);color:#fff;border-color:var(--teal)}
+  .qa .a{padding:0 0 22px;font-size:15.5px;color:var(--slate);max-width:62ch}
+
+  /* About */
+  .about-grid{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center}
+  .about-grid p{font-size:16.5px;color:var(--slate);margin-bottom:18px}
+  .about-grid p:first-of-type{font-size:19px;color:var(--ink2)}
+  .stat-row{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .stat-box{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:24px;box-shadow:var(--shadow)}
+  .stat-box .n{font-family:var(--mono);font-size:34px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+  .stat-box .l{font-size:13.5px;color:var(--slate);margin-top:4px}
+
+  /* CTA / Contact */
+  .cta-sec{background:var(--ink);color:#fff;border-radius:24px;padding:60px;text-align:center;position:relative;overflow:hidden}
+  .cta-sec::before{content:'';position:absolute;inset:0;background:radial-gradient(60% 120% at 50% -20%,rgba(14,159,119,.4),transparent 60%)}
+  .cta-sec > *{position:relative}
+  .cta-sec h2{color:#fff;margin-bottom:14px}
+  .cta-sec p{font-size:18px;color:#A9BACB;max-width:46ch;margin:0 auto 30px}
+  .cta-sec .btn-ghost{color:#fff;border-color:rgba(255,255,255,.25)}
+  .cta-sec .btn-ghost:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.5)}
+  .contact-mini{margin-top:34px;display:flex;gap:30px;justify-content:center;flex-wrap:wrap;font-size:14px;color:#A9BACB}
+  .contact-mini a{color:#fff;font-weight:600;border-bottom:1px solid rgba(255,255,255,.3)}
+
+  /* Footer */
+  footer{padding:64px 0 40px}
+  .foot-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;padding-bottom:40px;border-bottom:1px solid var(--line)}
+  .foot-brand p{font-size:14px;color:var(--slate);margin:14px 0 0;max-width:30ch}
+  .foot-col h4{font-size:12px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:16px}
+  .foot-col a{display:block;font-size:14.5px;color:var(--ink2);margin-bottom:11px;transition:color .15s}
+  .foot-col a:hover{color:var(--teal-d)}
+  .foot-bottom{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;padding-top:28px;font-size:13px;color:var(--faint)}
+  .disclaimer{background:var(--amber-wash);border:1px solid rgba(180,83,9,.22);border-radius:12px;padding:16px 18px;
+    font-size:13px;color:#7c4a13;margin-top:30px;line-height:1.55}
+  .disclaimer b{color:var(--amber)}
+
+  @media(max-width:920px){
+    .hero-grid,.about-grid{grid-template-columns:1fr;gap:44px}
+    .steps,.feats,.split{grid-template-columns:1fr}
+    .step-card .conn{display:none}
+    h1{font-size:42px} h2{font-size:30px}
+    .nav-links{display:none}
+    .menu-btn{display:flex}
+    .float.f2{right:6px} .float.f1{left:6px}
+    .cta-sec{padding:40px 26px}
+    .foot-grid{grid-template-columns:1fr 1fr;gap:30px}
+  }
+  @media(max-width:560px){
+    h1{font-size:34px} .lede{font-size:17px}
+    section{padding:60px 0}
+    .foot-grid{grid-template-columns:1fr}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .ecg .trace{animation:none;stroke-dashoffset:0}
+    .tag .live::after,.device-badge .d{animation:none}
+    html{scroll-behavior:auto}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="wrap">
+    <a class="brand" href="/">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3l2-5 4 12 2-7 2 3h5"/></svg>
+      </span>
+      Curbside
+    </a>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#roles">For clinicians</a>
+      <a href="#security">Security &amp; billing</a>
+      <a href="#faq">FAQ</a>
+      <a href="#about">About</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn btn-ghost" href="/app">Log in</a>
+      <a class="btn btn-primary" href="/app">Launch app</a>
+    </div>
+    <button class="menu-btn" aria-label="Menu" onclick="document.querySelector('.nav-links').classList.toggle('open')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0B1F33" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+  </nav>
+</header>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="tag"><span class="live"></span> A specialist is on call right now</span>
+      <h1>Specialist input,<br><span class="accent">while the patient is still in the room.</span></h1>
+      <p class="lede">Curbside connects Australian GPs with on-call specialists for a real-time video consult — with the note, letter and Medicare claim drafted for you by the time you hang up.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary btn-lg" href="/app">Start a consult</a>
+        <a class="btn btn-ghost btn-lg" href="#how">See how it works</a>
+      </div>
+      <div class="hero-meta">
+        <span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/></svg> <b>Minutes</b>, not weeks</span>
+        <span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg> AHPRA-verified clinicians</span>
+        <span class="item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg> MBS / PES billing built in</span>
+      </div>
+    </div>
+
+    <div style="position:relative">
+      <div class="device">
+        <div class="device-top">
+          <span class="ref">C-7421 <span>· Dermatology</span></span>
+          <span class="device-badge"><span class="d"></span> Broadcasting</span>
+        </div>
+        <div class="ecg" aria-hidden="true">
+          <svg viewBox="0 0 700 72" preserveAspectRatio="none">
+            <path class="trace" d="M0 36 H120 l10 -4 8 8 10 -28 12 52 9 -28 11 0 H300 l10 -4 8 8 10 -28 12 52 9 -28 11 0 H520 l10 -4 8 8 10 -28 12 52 9 -28 11 0 H700"/>
+          </svg>
+        </div>
+        <div class="device-body">
+          <div class="pmeta">
+            <span class="t"><i>PT</i> M.S.</span>
+            <span class="t"><i>AGE</i> 69 F</span>
+            <span class="t"><i>URGENCY</i> Soon</span>
+            <span class="t"><i>FILES</i> 📎 2</span>
+          </div>
+          <p class="device-line"><b>Referral:</b> 3-week pruritic rash, bilateral forearms, onset after starting amlodipine. HC 1% — no response. Antihypertensive switch?</p>
+          <div class="flow">
+            <div class="step done"><span class="bar"></span><span class="dot"></span><span class="lab">Draft</span></div>
+            <div class="step done"><span class="bar"></span><span class="dot"></span><span class="lab">AI&nbsp;Triage</span></div>
+            <div class="step now"><span class="bar"></span><span class="dot"></span><span class="lab">Broadcast</span></div>
+            <div class="step"><span class="bar"></span><span class="dot"></span><span class="lab">Live</span></div>
+            <div class="step"><span class="bar"></span><span class="dot"></span><span class="lab">Notes</span></div>
+          </div>
+          <div class="device-foot">
+            <span class="b acc">Accept consult</span>
+            <span class="b dec">Decline</span>
+          </div>
+        </div>
+      </div>
+      <div class="float f1">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 14l2 2 4-4"/></svg></span>
+        <span>SOAP note ready<small>Auto-drafted on hang-up</small></span>
+      </div>
+      <div class="float f2">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+        <span class="mono">Item 2487 · $79.30<small style="font-family:'Hanken Grotesk'">PES — 20–40 min</small></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TRUST STRIP -->
+<div class="strip">
+  <div class="wrap strip-in">
+    <span class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg> End-to-end encrypted video</span>
+    <span class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg> AHPRA verification</span>
+    <span class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/></svg> MBS PES &amp; specialist video items</span>
+    <span class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Full audit trail</span>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head center">
+      <span class="eyebrow">The consult flow</span>
+      <h2>From a question to a documented opinion — in one session.</h2>
+      <p>No phone tag, no waiting on a written referral. Three steps, while the patient is still with you.</p>
+    </div>
+    <div class="steps">
+      <div class="step-card">
+        <span class="conn"></span>
+        <div class="n">01</div>
+        <h3>Write the case once</h3>
+        <p>Enter the patient, the question, and attach photos or results. Curbside structures it into a clean specialist brief and flags what's missing — before anyone joins.</p>
+      </div>
+      <div class="step-card">
+        <span class="conn"></span>
+        <div class="n">02</div>
+        <h3>Reach an on-call specialist</h3>
+        <p>The case broadcasts to verified specialists in that field who are available now. The first to accept opens a secure video room with you in seconds.</p>
+      </div>
+      <div class="step-card">
+        <div class="n">03</div>
+        <h3>Walk away documented</h3>
+        <p>The live scribe captures the discussion. On completion you get a SOAP note, a letter to the GP, a referral and a patient handout — plus the correct MBS items.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ROLES -->
+<section id="roles" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Built for both sides of the call</span>
+      <h2>Two clinicians, one workflow.</h2>
+    </div>
+    <div class="split">
+      <div class="panel gp">
+        <div class="role">For GPs</div>
+        <h3>Keep the patient. Lose the wait.</h3>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg><span><b>Decide today.</b> Get a specialist view in minutes instead of a 6-week outpatient wait.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg><span><b>Avoid the referral.</b> Many cases resolve on the call — fewer onward referrals, fewer ED visits.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg><span><b>Bill it properly.</b> Curbside recommends the correct Patient End Support item by duration and setting.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg><span><b>Notes write themselves.</b> The note and patient handout land in your dashboard for sign-off.</span></li>
+        </ul>
+      </div>
+      <div class="panel sp">
+        <div class="role">For Specialists</div>
+        <h3>Fill the gaps between clinics.</h3>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg><span><b>You control availability.</b> One toggle. Take consults only when it suits you.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg><span><b>See the case first.</b> Structured brief, photos and results before you accept — no cold calls.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg><span><b>Bill your video item.</b> Item 91822 / 91823 generated automatically alongside the GP's claim.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg><span><b>Zero admin.</b> The opinion letter is drafted from your conversation — you review, not retype.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECURITY / BILLING -->
+<section id="security" class="feat-sec">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Compliance &amp; trust</span>
+      <h2>The boring parts, handled.</h2>
+      <p>Curbside is built around the rules clinicians already work within — billing, verification and record-keeping.</p>
+    </div>
+    <div class="feats">
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 15h3"/></svg></div>
+        <h3>MBS billing engine</h3>
+        <p>Recommends the GP Patient End Support item by face-to-face time and setting, paired with the specialist video item.</p>
+        <div class="code">2484–2495 · 91822 / 91823</div>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></div>
+        <h3>AHPRA verification</h3>
+        <p>Every clinician is checked and approved before they can take or send a consult. Unverified accounts stay read-only.</p>
+        <div class="code">Provider &amp; AHPRA on file</div>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <h3>Encrypted video</h3>
+        <p>Consults run on encrypted, ephemeral rooms. Nothing is stored beyond the clinical record you choose to keep.</p>
+        <div class="code">Per-consult room · auto-expiry</div>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></div>
+        <h3>Documents on completion</h3>
+        <p>SOAP note, specialist letter, referral and a plain-language patient handout — drafted from the live transcript.</p>
+        <div class="code">4 documents · 0 retyping</div>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+        <h3>Full audit trail</h3>
+        <p>Every action — created, broadcast, accepted, completed, billed — is timestamped and logged for governance review.</p>
+        <div class="code">Immutable event log</div>
+      </div>
+      <div class="feat">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3"/></svg></div>
+        <h3>Works on any device</h3>
+        <p>GPs and admins on the web; specialists on a dedicated phone app that installs to the home screen.</p>
+        <div class="code">Web · iOS · Android</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section id="about">
+  <div class="wrap about-grid">
+    <div>
+      <span class="eyebrow">About Curbside</span>
+      <h2>A "curbside consult", made real.</h2>
+      <p>Clinicians have always relied on the informal "curbside" — catching a colleague in the corridor for a quick, expert second opinion. It's fast and it's invaluable. It's also undocumented, unbillable, and impossible when the specialist isn't down the hall.</p>
+      <p>Curbside is that conversation, rebuilt for telehealth: structured, secure, properly billed, and written up automatically. We're a clinician-founded Australian health-technology company focused on closing the distance between primary and specialist care.</p>
+    </div>
+    <div class="stat-row">
+      <div class="stat-box"><div class="n">4</div><div class="l">Documents drafted per completed consult</div></div>
+      <div class="stat-box"><div class="n">&lt;5<span style="font-size:18px">min</span></div><div class="l">Typical time to reach a specialist</div></div>
+      <div class="stat-box"><div class="n">100%</div><div class="l">Of clinicians AHPRA-verified before going live</div></div>
+      <div class="stat-box"><div class="n">2026</div><div class="l">Built around the 1 Mar PES item structure</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head center">
+      <span class="eyebrow">Questions, answered</span>
+      <h2>Frequently asked</h2>
+    </div>
+    <div class="faq">
+      <details class="qa" open>
+        <summary>Is the patient present during the consult?<span class="pm">+</span></summary>
+        <div class="a">Yes. Curbside is designed around the patient being in the room with their GP for the whole consult, with the specialist joining by video. That's what makes the GP's Patient End Support (PES) item claimable and keeps the patient at the centre of the decision.</div>
+      </details>
+      <details class="qa">
+        <summary>How does billing work?<span class="pm">+</span></summary>
+        <div class="a">When a consult completes, Curbside recommends the correct MBS items: the GP's PES item (2484–2495, chosen by face-to-face time and setting) and the specialist's video attendance item (91822 initial / 91823 subsequent). You review and confirm each item before anything is submitted. Schedule fees shown are indicative and should be validated against MBS Online — Curbside is billing support, not billing advice.</div>
+      </details>
+      <details class="qa">
+        <summary>Who can join the network?<span class="pm">+</span></summary>
+        <div class="a">Registered Australian GPs and specialists. Every account is verified against AHPRA by an administrator before it can create, accept or bill a consult. Until then, accounts remain read-only.</div>
+      </details>
+      <details class="qa">
+        <summary>What about privacy and patient data?<span class="pm">+</span></summary>
+        <div class="a">Video runs on encrypted, single-use rooms that expire after the consult. Clinical records, notes and the audit trail are retained as part of the medical record; we don't sell data or use it for advertising. See our <a href="/privacy" style="color:var(--teal-d);border-bottom:1px solid var(--teal)">Privacy Policy</a> for the detail.</div>
+      </details>
+      <details class="qa">
+        <summary>Do specialists need to be available all the time?<span class="pm">+</span></summary>
+        <div class="a">No. Specialists toggle availability on and off, or set scheduled windows. You only ever see — and only ever receive — consults while you've chosen to be available.</div>
+      </details>
+      <details class="qa">
+        <summary>Does it replace a formal referral?<span class="pm">+</span></summary>
+        <div class="a">It complements it. Many questions resolve on the call. When ongoing specialist care is needed, Curbside drafts the formal referral letter for you, so the onward pathway is faster too.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- CTA / CONTACT -->
+<section id="contact" style="padding-top:0">
+  <div class="wrap">
+    <div class="cta-sec">
+      <span class="eyebrow" style="color:var(--teal)">Get started</span>
+      <h2>Bring the specialist to the room.</h2>
+      <p>Log in to your Curbside account, or get in touch to bring your practice or specialist group onto the network.</p>
+      <div class="hero-cta" style="justify-content:center;margin-bottom:0">
+        <a class="btn btn-primary btn-lg" href="/app">Launch the app</a>
+        <a class="btn btn-ghost btn-lg" href="mailto:hello@curbside.au">Talk to us</a>
+      </div>
+      <div class="contact-mini">
+        <span>General: <a href="mailto:hello@curbside.au">hello@curbside.au</a></span>
+        <span>Clinical &amp; onboarding: <a href="mailto:clinicians@curbside.au">clinicians@curbside.au</a></span>
+        <span>Support: <a href="mailto:support@curbside.au">support@curbside.au</a></span>
+      </div>
+    </div>
+    <div class="disclaimer">
+      <b>Clinical &amp; billing notice.</b> Curbside is a workflow and documentation tool. It does not provide medical advice, and AI-drafted documents and billing recommendations must be reviewed and confirmed by the responsible clinician before use. MBS item numbers and schedule fees shown are indicative and must be validated against MBS Online. Curbside is not a substitute for clinical judgement or for emergency care — in an emergency, call 000.
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="/">
+          <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3l2-5 4 12 2-7 2 3h5"/></svg></span>
+          Curbside
+        </a>
+        <p>Real-time specialist consults for Australian primary care.</p>
+      </div>
+      <div class="foot-col">
+        <h4>Product</h4>
+        <a href="#how">How it works</a>
+        <a href="#roles">For clinicians</a>
+        <a href="#security">Security &amp; billing</a>
+        <a href="/app">Launch app</a>
+      </div>
+      <div class="foot-col">
+        <h4>Company</h4>
+        <a href="#about">About</a>
+        <a href="#faq">FAQ</a>
+        <a href="mailto:hello@curbside.au">Contact</a>
+      </div>
+      <div class="foot-col">
+        <h4>Legal</h4>
+        <a href="/privacy">Privacy Policy</a>
+        <a href="/terms">Terms of Use</a>
+        <a href="mailto:support@curbside.au">Support</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 Curbside Health Pty Ltd. All rights reserved.</span>
+      <span class="mono">Made in Australia 🇦🇺 · ABN pending</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
