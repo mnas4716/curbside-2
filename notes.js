@@ -128,7 +128,6 @@ router.post('/login', async (req, res) => {
       INSERT INTO audit_log (event, actor_id, actor_type, target_type, target_id)
       VALUES (?, ?, ?, ?, ?)
     `, ['USER_LOGIN', user.id, 'user', 'user', user.uid]);
-    db.save();
 
     res.json({
       message: 'Login successful',

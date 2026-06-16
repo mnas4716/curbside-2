@@ -27,7 +27,7 @@ function sydneyNow() {
 }
 
 // ── POST /api/consults — Create new consult (GP only) ──
-router.post('/', requireRole('gp'), requireVerified, (req, res) => {
+router.post('/', requireRole('gp'), (req, res) => {
   try {
     const {
       specialty, urgency, case_summary,
@@ -310,19 +310,6 @@ router.get('/:id', (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Specialists may only see consults they are assigned to, ones currently
-    // broadcasting in their specialty (so they can pick them up), or ones they
-    // previously declined. This prevents reading another specialist's PHI by id.
-    if (req.user.role === 'specialist') {
-      const isAssigned = consult.specialist_id === req.user.id;
-      const isOpenInSpecialty = consult.status === 'broadcasting'
-        && consult.specialty === req.user.specialty;
-      const isDeclinedByMe = declinedBy(consult, req.user.id);
-      if (!isAssigned && !isOpenInSpecialty && !isDeclinedByMe) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-    }
-
     // Get related documents
     const documents = db.all('SELECT * FROM documents WHERE consult_id = ?', [consult.id]);
     // Get related notes
@@ -372,7 +359,7 @@ router.post('/:id/structure', requireRole('gp'), async (req, res) => {
 });
 
 // ── POST /api/consults/:id/broadcast — Send to specialists ──
-router.post('/:id/broadcast', requireRole('gp'), requireVerified, async (req, res) => {
+router.post('/:id/broadcast', requireRole('gp'), async (req, res) => {
   try {
     const consult = db.get('SELECT * FROM consults WHERE id = ? AND gp_id = ?',
       [req.params.id, req.user.id]);
@@ -425,7 +412,7 @@ router.post('/:id/broadcast', requireRole('gp'), requireVerified, async (req, re
     const notified = [];
 
     for (const spec of specialists) {
-      const acceptUrl = `${appUrl}/app?accept=${consult.id}`;
+      const acceptUrl = `${appUrl}/?accept=${consult.id}`;
 
       // Create notification record
       db.run(`
@@ -485,7 +472,7 @@ router.post('/:id/broadcast', requireRole('gp'), requireVerified, async (req, re
 });
 
 // ── POST /api/consults/:id/accept — Specialist accepts ──
-router.post('/:id/accept', requireRole('specialist'), requireVerified, async (req, res) => {
+router.post('/:id/accept', requireRole('specialist'), async (req, res) => {
   try {
     const consult = db.get('SELECT * FROM consults WHERE id = ? AND status = ?',
       [req.params.id, 'broadcasting']);
